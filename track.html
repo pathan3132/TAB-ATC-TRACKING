@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>TAB Solutions · Trip Tracking</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="driver-wrap">
+  <div class="d-head">
+    <span class="logo">TAB</span>
+    <div><b>TAB Solutions</b><div class="muted small">Trip location tracking</div></div>
+  </div>
+
+  <!-- Loading / error states -->
+  <div id="stateLoading" class="d-card">Trip details load ho rahi hain…</div>
+
+  <div id="stateInvalid" class="track-banner bad" hidden>
+    <h2><span class="pulse"></span>Link sahi nahi hai</h2>
+    <p>Yeh tracking link galat ya band ho chuka hai. TAB Solutions se naya link maangein.</p>
+  </div>
+
+  <div id="stateError" class="track-banner warn" hidden>
+    <h2><span class="pulse"></span>Connection problem</h2>
+    <p id="errText">Server se connect nahi ho pa raha.</p>
+    <button class="btn block" id="retryLoad">Dobara try karein</button>
+  </div>
+
+  <div id="stateDone" class="track-banner done" hidden>
+    <h2><span class="pulse"></span>Trip complete ✓</h2>
+    <p>Tracking band ho chuki hai. Ab aapki location share nahi ho rahi. Dhanyavaad!</p>
+  </div>
+
+  <!-- Main -->
+  <div id="stateMain" hidden>
+    <div id="banner" class="track-banner">
+      <h2><span class="pulse"></span><span id="bannerTitle">Tracking band hai</span></h2>
+      <div id="bannerText">Location share karne ke liye neeche button dabayein.</div>
+      <div class="metrics" id="metrics" hidden>
+        <div>Last bheja gaya<b id="mLast">—</b></div>
+        <div>GPS accuracy<b id="mAcc">—</b></div>
+        <div>Bheje gaye points<b id="mSent">0</b></div>
+        <div>Pending (offline)<b id="mQueue">0</b></div>
+      </div>
+    </div>
+
+    <div class="stack" id="actions">
+      <button class="btn green block" id="btnStart">▶ Location sharing shuru karein</button>
+      <button class="btn block" id="btnStop" hidden>⏸ Sharing roken (trip abhi baaki hai)</button>
+      <button class="btn danger block" id="btnDone">✔ Trip complete / Delivered</button>
+    </div>
+
+    <div id="denied" class="d-card" hidden style="margin-top:12px">
+      <b>Location permission band hai</b>
+      <ul class="small">
+        <li>Browser ke address bar mein 🔒 / ⓘ icon dabayein → <b>Location → Allow</b>.</li>
+        <li>Phir page reload karein ya "shuru karein" dabayein.</li>
+        <li>Phone ki Settings mein Location (GPS) ON hona chahiye.</li>
+      </ul>
+    </div>
+
+    <div class="d-card" style="margin-top:12px">
+      <h3>Trip details</h3>
+      <dl class="kv" id="tripKv"></dl>
+    </div>
+
+    <div class="d-card notice" style="margin-top:0">
+      <b>Zaroori baatein</b>
+      <ul>
+        <li>Tracking tabhi chalti hai jab yeh page <b>khula</b> ho. Phone lock ya browser background mein jaane par location ruk sakti hai.</li>
+        <li>Is page ko khula rakhein; screen ko ON rakhne ki koshish yeh page khud karta hai.</li>
+        <li>Sirf is trip ki location TAB Solutions ko dikhegi. "Sharing roken" ya "Trip complete" dabate hi sharing band ho jaati hai.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+(function () {
+  const U = window.TAB;
+  const cfg = U.cfg;
+  const $ = function (id) { return document.getElementById(id); };
+  const token = new URLSearchParams(location.search).get('t') || '';
+  const INTERVAL = Math.max(10, Number(cfg.PING_INTERVAL_SEC) || 30) * 1000;
+  const STOP_FLAG = 'tab_driver_stopped_' + token.slice(0, 12);
+  const QUEUE_KEY = 'tab_driver_queue_' + token.slice(0, 12);
+
+  let trip = null;
+  let watchId = null, timer = null, tickTimer = null, wakeLock = null;
+  let active = false, sending = false, polling = false;
+  let lastFix = null, lastQueuedTs = 0, lastSentAt = 0, sentCount = 0;
+  let hiddenAt = 0, queue = loadQueue();
+
+  /* ---------------- helpers ---------------- */
+  function show(id) {
+    ['stateLoading', 'stateInvalid', 'stateError', 'stateDone', 'stateMain'].forEach(function (s) {
+      $(s).hidden = (s !== id);
+    });
+  }
+  function loadQueue() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveQueue() {
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-300))); } catch (e) { /* ignore */ }
+  }
+  function setBanner(kind, title, text) {
+    $('banner').className = 'track-banner ' + kind;
+    $('bannerTitle').textContent = title;
+    $('bannerText').textContent = text;
+  }
+  function renderMetrics() {
+    $('metrics').hidden = !active;
+    $('mLast').textContent = lastSentAt ? U.timeAgo(lastSentAt) : 'abhi tak nahi';
+    $('mAcc').textContent = lastFix ? '±' + lastFix.acc + ' m' : '—';
+    $('mSent').textContent = sentCount;
+    $('mQueue').textContent = queue.length;
+  }
+  function renderButtons() {
+    $('btnStart').hidden = active;
+    $('btnStop').hidden = !active;
+  }
+  function renderTrip() {
+    const rows = [
+      ['Vehicle', trip.vehicleNo], ['Driver', trip.driverName], ['Party', trip.partyName],
+      ['Loading', trip.loadingLocation], ['Delivery', trip.deliveryLocation],
+      ['Material', trip.material], ['Remarks', trip.remarks]
+    ].filter(function (r) { return r[1]; });
+    $('tripKv').innerHTML = rows.map(function (r) {
+      return '<dt>' + U.esc(r[0]) + '</dt><dd>' + U.esc(r[1]) + '</dd>';
+    }).join('');
+  }
+
+  /* ---------------- load trip ---------------- */
+  async function loadTrip() {
+    show('stateLoading');
+    if (!/^[A-Za-z0-9]{32,64}$/.test(token)) { show('stateInvalid'); return; }
+    let r;
+    try {
+      r = await U.api('getTrip', { token: token });
+    } catch (e) {
+      $('errText').textContent = 'Internet / server se connect nahi ho pa raha. ' + (e.message || '');
+      show('stateError'); return;
+    }
+    if (!r || !r.ok) {
+      if (r && r.error === 'INVALID_LINK') show('stateInvalid');
+      else { $('errText').textContent = 'Server error. Thodi der baad try karein.'; show('stateError'); }
+      return;
+    }
+    trip = r.trip;
+    if (trip.status === 'Delivered') { show('stateDone'); return; }
+    renderTrip();
+    show('stateMain');
+    renderButtons();
+    setBanner('', 'Tracking band hai', 'Location share karne ke liye neeche button dabayein.');
+
+    if (!window.isSecureContext) {
+      setBanner('bad', 'HTTPS zaruri hai', 'Yeh page HTTPS par nahi khula, isliye GPS kaam nahi karega.');
+      $('btnStart').disabled = true; return;
+    }
+    // Auto-start: jab tak driver ne khud pehle "roken" na dabaya ho.
+    let stoppedByDriver = false;
+    try { stoppedByDriver = localStorage.getItem(STOP_FLAG) === '1'; } catch (e) { /* ignore */ }
+    if (!stoppedByDriver) startTracking(true);
+  }
+
+  /* ---------------- tracking ---------------- */
+  async function startTracking(auto) {
+    if (active) return;
+    if (!navigator.geolocation) {
+      setBanner('bad', 'GPS support nahi', 'Is browser mein location support nahi hai. Chrome ya Safari use karein.');
+      return;
+    }
+    try { localStorage.removeItem(STOP_FLAG); } catch (e) { /* ignore */ }
+    $('denied').hidden = true;
+
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const p = await navigator.permissions.query({ name: 'geolocation' });
+        if (p.state === 'denied') { onDenied(); return; }
+      } catch (e) { /* Safari etc. */ }
+    }
+
+    active = true;
+    renderButtons();
+    setBanner('warn', 'GPS dhoondh rahe hain…', 'Location permission "Allow" karein aur GPS signal ka intezaar karein.');
+    renderMetrics();
+
+    watchId = navigator.geolocation.watchPosition(onPos, onGeoError, {
+      enableHighAccuracy: true, maximumAge: 5000, timeout: 30000
+    });
+    timer = setInterval(tick, INTERVAL);
+    tickTimer = setInterval(renderMetrics, 1000);
+    requestWakeLock();
+    if (queue.length) flush();
+  }
+
+  function onDenied() {
+    active = false;
+    renderButtons();
+    $('denied').hidden = false;
+    setBanner('bad', 'Location permission nahi mili', 'Bina location permission ke tracking nahi ho sakti. Neeche diye steps follow karein.');
+  }
+
+  function onGeoError(err) {
+    if (err.code === 1) { stopLocal(); onDenied(); return; }
+    if (err.code === 2) {
+      setBanner('warn', 'GPS signal nahi mil raha', 'Khuli jagah par jaayein aur phone ka Location (GPS) ON rakhein.');
+    } else {
+      setBanner('warn', 'GPS slow hai', 'Location milne mein der ho rahi hai. Tracking koshish kar rahi hai…');
+    }
+  }
+
+  function onPos(pos) {
+    const c = pos.coords;
+    lastFix = {
+      lat: c.latitude, lng: c.longitude, acc: Math.round(c.accuracy),
+      speed: c.speed, ts: pos.timestamp || Date.now()
+    };
+    if (!lastQueuedTs) tick(); // pehla fix turant bhejein
+  }
+
+  function tick() {
+    if (!active) return;
+    if (lastFix && lastFix.ts > lastQueuedTs) {
+      enqueue(lastFix);
+    } else if (!polling && navigator.geolocation) {
+      // watchPosition ruka hua ho (jaise gaadi khadi ho) to ek fresh reading maangein
+      polling = true;
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        polling = false; onPos(pos);
+        if (lastFix.ts > lastQueuedTs) enqueue(lastFix);
+      }, function () { polling = false; }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    }
+  }
+
+  function enqueue(fix) {
+    lastQueuedTs = fix.ts;
+    queue.push({ lat: fix.lat, lng: fix.lng, acc: fix.acc, speed: fix.speed, ts: fix.ts });
+    if (queue.length > 300) queue.splice(0, queue.length - 300);
+    saveQueue();
+    renderMetrics();
+    flush();
+  }
+
+  async function flush() {
+    if (sending || !queue.length) return;
+    sending = true;
+    const batch = queue.slice(0, 50);
+    try {
+      const r = await U.api('postLocations', { token: token, points: batch });
+      if (r && r.ok) {
+        queue.splice(0, batch.length);
+        saveQueue();
+        sentCount += batch.length;
+        lastSentAt = Date.now();
+        if (active) {
+          setBanner('on', 'Tracking ON ✓', 'Aapki location TAB Solutions ko live mil rahi hai. Is page ko khula rakhein.');
+        }
+      } else if (r && r.error === 'TRIP_CLOSED') {
+        queue = []; saveQueue(); stopLocal(); show('stateDone'); sending = false; return;
+      } else if (r && (r.error === 'INVALID_LINK')) {
+        queue = []; saveQueue(); stopLocal(); show('stateInvalid'); sending = false; return;
+      } else if (r && r.error === 'NO_VALID_POINTS') {
+        queue.splice(0, batch.length); saveQueue();
+      } else if (active) {
+        setBanner('warn', 'Tracking ON, server busy', 'Points save ho rahe hain, thodi der mein dobara bheje jayenge.');
+      }
+    } catch (e) {
+      if (active) setBanner('warn', 'Internet nahi hai', 'Location phone mein save ho rahi hai; net aate hi apne aap bhej di jayegi.');
+    }
+    sending = false;
+    renderMetrics();
+    if (queue.length >= 1 && lastSentAt && Date.now() - lastSentAt < 2000) flush();
+  }
+
+  function stopLocal() {
+    active = false;
+    if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    clearInterval(timer); clearInterval(tickTimer); timer = tickTimer = null;
+    releaseWakeLock();
+    lastQueuedTs = 0;
+    renderButtons();
+    renderMetrics();
+  }
+
+  async function stopSharing() {
+    await flushAll();
+    stopLocal();
+    try { localStorage.setItem(STOP_FLAG, '1'); } catch (e) { /* ignore */ }
+    try { await U.api('stopTracking', { token: token }); } catch (e) { /* ignore */ }
+    setBanner('', 'Sharing roki gayi', 'Aapki location ab share nahi ho rahi. Dobara shuru karne ke liye button dabayein.');
+  }
+
+  async function completeTrip() {
+    if (!confirm('Kya trip complete / delivered ho gayi? Iske baad tracking band ho jayegi.')) return;
+    $('btnDone').disabled = true;
+    await flushAll();
+    let r;
+    try { r = await U.api('completeTrip', { token: token }); } catch (e) { r = null; }
+    $('btnDone').disabled = false;
+    if (r && r.ok) {
+      stopLocal(); queue = []; saveQueue(); show('stateDone');
+    } else {
+      alert('Trip complete nahi ho payi. Internet check karke dobara try karein.');
+    }
+  }
+
+  async function flushAll() {
+    for (let i = 0; i < 5 && queue.length; i++) {
+      const before = queue.length;
+      await flush();
+      if (queue.length >= before) break;
+    }
+  }
+
+  /* ---------------- wake lock & visibility ---------------- */
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator && active && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', function () { wakeLock = null; });
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  function releaseWakeLock() {
+    try { if (wakeLock) wakeLock.release(); } catch (e) { /* ignore */ }
+    wakeLock = null;
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      hiddenAt = Date.now();
+    } else if (active) {
+      requestWakeLock();
+      const away = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = 0;
+      if (away > 60000) {
+        setBanner('warn', 'Tracking ON (gap ho sakta hai)',
+          'Aap kuch der page se bahar the, us dauran location ruk sakti hai. Page khula rakhein.');
+      }
+      tick();
+      flush();
+    }
+  });
+
+  window.addEventListener('online', function () { if (queue.length) flush(); });
+
+  /* ---------------- wiring ---------------- */
+  $('btnStart').addEventListener('click', function () { startTracking(false); });
+  $('btnStop').addEventListener('click', stopSharing);
+  $('btnDone').addEventListener('click', completeTrip);
+  $('retryLoad').addEventListener('click', loadTrip);
+
+  loadTrip();
+})();
+</script>
+</body>
+</html>
