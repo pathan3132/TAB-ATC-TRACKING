@@ -1,4 +1,4 @@
-# TAB Solutions – Link-Based Driver Tracking (v1)
+# ATC Transport – Link-Based Driver Tracking (v1)
 
 Google Sheets + Apps Script (backend) + static HTML (frontend, HTTPS hosting par).
 
@@ -18,7 +18,7 @@ Google Sheets + Apps Script (backend) + static HTML (frontend, HTTPS hosting par
 ## Setup (≈ 30–45 minute)
 
 ### 1. Backend
-1. Google Drive mein nayi **Google Sheet** banayein (naam: `TAB Tracking DB`).
+1. Google Drive mein nayi **Google Sheet** banayein (naam: `ATC Tracking DB`).
 2. **Extensions → Apps Script** kholein. `Code.gs` ka poora code paste karein, save karein.
 3. **Project Settings (⚙) → Script properties → Add**: `ADMIN_PASSWORD` = aapka strong password (12+ characters).
 4. Editor mein function `setup` select karke **Run** karein, permissions Allow karein. (`Trips` aur `Locations` sheets ban jayengi.)
@@ -39,6 +39,16 @@ Google Sheets + Apps Script (backend) + static HTML (frontend, HTTPS hosting par
 1. **New trip** tab → details bharein → **Trip create karein**.
 2. **WhatsApp par driver ko bhejein** dabayein (wa.me khulega, message ready hoga).
 3. Driver link kholkar Location **Allow** kare → **Live map** par gaadi dikhne lagegi.
+
+## PWA (app ki tarah install)
+
+- `manifest.json` / `manifest-admin.json` + `sw.js` + `icons/` se site "Add to Home screen / Install app" support karti hai.
+- Driver page par Chrome (Android) mein "Is page ko app ki tarah install karein" button aata hai.
+  Install ke baad home screen par **ATC Transport** icon aata hai aur wo usi trip par khulta hai.
+- Admin bhi `admin.html` ko Chrome menu → **Install app** se install kar sakta hai.
+- PWA se **background tracking nahi badhti**: yeh phir bhi browser jaisa hi chalta hai. Background ke liye `android/` app chahiye.
+- Naya version deploy karne par `sw.js` mein `CACHE = 'atc-v1'` ko `atc-v2` kar dein.
+- iPhone: Safari → Share → "Add to Home Screen".
 
 ## Kaun kya control karta hai
 

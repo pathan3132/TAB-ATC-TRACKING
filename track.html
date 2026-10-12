@@ -2,85 +2,102 @@
 <html lang="hi">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
-<title>TAB Solutions · Trip Tracking</title>
+<meta name="theme-color" content="#0e2a47">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ATC Transport">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>ATC Transport · Trip Details</title>
+<link rel="manifest" id="manifestLink" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="driver">
 <div class="driver-wrap">
-  <div class="d-head">
-    <span class="logo">TAB</span>
-    <div><b>TAB Solutions</b><div class="muted small">Trip location tracking</div></div>
-  </div>
 
-  <!-- Loading / error states -->
-  <div id="stateLoading" class="d-card">Trip details load ho rahi hain…</div>
+  <header class="brand-head">
+    <svg class="mark" viewBox="0 0 100 74" aria-hidden="true">
+      <rect x="0" y="6" width="60" height="48" rx="5" fill="#f2a900"/>
+      <path d="M64 20h20l16 18v16H64z" fill="#f2a900"/>
+      <path d="M70 26h12l10 12H70z" fill="#0e2a47"/>
+      <text x="30" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="22" fill="#0e2a47">ATC</text>
+      <circle cx="22" cy="56" r="11" fill="#0e2a47"/><circle cx="22" cy="56" r="8" fill="#fff"/><circle cx="22" cy="56" r="3" fill="#0e2a47"/>
+      <circle cx="80" cy="56" r="11" fill="#0e2a47"/><circle cx="80" cy="56" r="8" fill="#fff"/><circle cx="80" cy="56" r="3" fill="#0e2a47"/>
+    </svg>
+    <h1>ATC TRANSPORT</h1>
+    <div class="tag">ALL INDIA TRANSPORT COMPANY</div>
+    <div class="owners">Munna &amp; Asif</div>
+  </header>
 
-  <div id="stateInvalid" class="track-banner bad" hidden>
-    <h2><span class="pulse"></span>Link sahi nahi hai</h2>
-    <p>Yeh tracking link galat ya band ho chuka hai. TAB Solutions se naya link maangein.</p>
-  </div>
+  <main class="d-main">
 
-  <div id="stateError" class="track-banner warn" hidden>
-    <h2><span class="pulse"></span>Connection problem</h2>
-    <p id="errText">Server se connect nahi ho pa raha.</p>
-    <button class="btn block" id="retryLoad">Dobara try karein</button>
-  </div>
+    <div id="stateLoading" class="pcard pad">Trip details load ho rahi hain…</div>
 
-  <div id="stateDone" class="track-banner done" hidden>
-    <h2><span class="pulse"></span>Trip complete ✓</h2>
-    <p>Tracking band ho chuki hai. Ab aapki location share nahi ho rahi. Dhanyavaad!</p>
-  </div>
+    <div id="stateInvalid" class="pcard pad bad" hidden>
+      <h2><span class="pulse"></span>Link sahi nahi hai</h2>
+      <p style="margin:0">Yeh link galat ya band ho chuka hai. ATC Transport se naya link maangein.</p>
+    </div>
 
-  <div id="appCard" class="d-card" hidden>
-    <b>Background tracking ke liye app</b>
-    <p class="small muted" style="margin:6px 0 10px">Phone lock hone ya dusra app chalane par bhi location bhejne ke liye TAB Tracker app install karein.</p>
-    <a class="btn amber block" id="appLink" href="#" style="text-align:center;text-decoration:none">App download karein</a>
-  </div>
+    <div id="stateError" class="pcard pad warn" hidden>
+      <h2><span class="pulse"></span>Connection problem</h2>
+      <p id="errText" style="margin:0 0 12px">Server se connect nahi ho pa raha.</p>
+      <button class="btn primary block" id="retryLoad">Dobara try karein</button>
+    </div>
 
-  <!-- Main -->
-  <div id="stateMain" hidden>
-    <div id="banner" class="track-banner">
-      <h2><span class="pulse"></span><span id="bannerTitle">Tracking band hai</span></h2>
-      <div id="bannerText">Location share karne ke liye neeche button dabayein.</div>
-      <div class="metrics" id="metrics" hidden>
-        <div>Last bheja gaya<b id="mLast">—</b></div>
-        <div>GPS accuracy<b id="mAcc">—</b></div>
-        <div>Bheje gaye points<b id="mSent">0</b></div>
-        <div>Pending (offline)<b id="mQueue">0</b></div>
+    <div id="stateDone" class="pcard pad done" hidden>
+      <h2><span class="pulse"></span>Trip complete ✓</h2>
+      <p style="margin:0">Yeh trip poori ho chuki hai. Dhanyavaad!</p>
+    </div>
+
+    <div id="stateMain" hidden style="display:grid;gap:12px">
+      <section class="pcard" aria-label="Trip details">
+        <div class="plate-row">
+          <div class="plate-cap">Gaadi number</div>
+          <div class="plate" id="plate">—</div>
+        </div>
+        <div class="status-row">
+          <span id="tripStatus" class="badge b-loading">—</span>
+          <span id="chip" class="chip"><i></i><span id="chipText">Location band</span></span>
+        </div>
+
+        <div class="route">
+          <div class="stop">
+            <span class="dot"></span>
+            <div><div class="k">Loading</div><div class="v" id="stFrom">—</div></div>
+          </div>
+          <div class="stop to">
+            <span class="dot"></span>
+            <div><div class="k">Delivery</div><div class="v" id="stTo">—</div></div>
+          </div>
+        </div>
+
+        <div class="facts" id="facts"></div>
+      </section>
+
+      <div id="alertBox" class="alert-box" hidden role="alert">
+        <p id="alertText"></p>
+        <ul id="deniedSteps" hidden>
+          <li>Address bar mein 🔒 / ⓘ dabayein → <b>Location → Allow</b>.</li>
+          <li>Phone ki Settings mein Location (GPS) ON rakhein.</li>
+          <li>Phir neeche button dabayein.</li>
+        </ul>
+        <button class="btn green block" id="btnStart">Dobara try karein</button>
       </div>
+
+      <button class="btn amber install-btn" id="btnInstall" hidden>📲 Is page ko app ki tarah install karein</button>
     </div>
 
-    <div class="stack" id="actions">
-      <button class="btn green block" id="btnStart">▶ Location sharing shuru karein</button>
-    </div>
+  </main>
 
-    <div id="denied" class="d-card" hidden style="margin-top:12px">
-      <b>Location permission band hai</b>
-      <ul class="small">
-        <li>Browser ke address bar mein 🔒 / ⓘ icon dabayein → <b>Location → Allow</b>.</li>
-        <li>Phir page reload karein ya "shuru karein" dabayein.</li>
-        <li>Phone ki Settings mein Location (GPS) ON hona chahiye.</li>
-      </ul>
-    </div>
-
-    <div class="d-card" style="margin-top:12px">
-      <h3>Trip details</h3>
-      <dl class="kv" id="tripKv"></dl>
-    </div>
-
-    <div class="d-card notice" style="margin-top:0">
-      <b>Zaroori baatein</b>
-      <ul>
-        <li>Tracking tabhi chalti hai jab yeh page <b>khula</b> ho. Phone lock ya browser background mein jaane par location ruk sakti hai.</li>
-        <li>Is page ko khula rakhein; screen ko ON rakhne ki koshish yeh page khud karta hai.</li>
-        <li>Sirf is trip ki location TAB Solutions ko dikhegi. Trip complete hone par TAB Solutions tracking band kar degi, aapko kuch dabane ki zarurat nahi.</li>
-        <li>Aap kabhi bhi phone ki Settings mein jaakar is site ki Location permission band kar sakte hain.</li>
-      </ul>
-    </div>
-  </div>
+  <footer class="foot">
+    <b>ATC TRANSPORT</b><br>
+    All India Transport Company<br>
+    Munna &amp; Asif
+  </footer>
 </div>
 
 <script src="config.js"></script>
@@ -90,21 +107,66 @@
   const U = window.TAB;
   const cfg = U.cfg;
   const $ = function (id) { return document.getElementById(id); };
-  const token = new URLSearchParams(location.search).get('t') || '';
+
+  /* ---------- token (link se; PWA se khulne par pichla trip) ---------- */
+  const LAST_KEY = 'atc_last_token';
+  let token = new URLSearchParams(location.search).get('t') || '';
+  if (!token) { try { token = localStorage.getItem(LAST_KEY) || ''; } catch (e) { /* ignore */ } }
+
   const INTERVAL = Math.max(10, Number(cfg.PING_INTERVAL_SEC) || 30) * 1000;
-  const QUEUE_KEY = 'tab_driver_queue_' + token.slice(0, 12);
+  const QUEUE_KEY = 'atc_driver_queue_' + token.slice(0, 12);
 
   let trip = null;
-  let watchId = null, timer = null, tickTimer = null, wakeLock = null, resumeTimer = null;
+  let watchId = null, timer = null, wakeLock = null, resumeTimer = null;
   let active = false, sending = false, polling = false, paused = false;
-  let lastFix = null, lastQueuedTs = 0, lastSentAt = 0, sentCount = 0;
-  let hiddenAt = 0, queue = loadQueue();
+  let lastFix = null, lastQueuedTs = 0, hiddenAt = 0;
+  let queue = loadQueue();
 
-  /* ---------------- helpers ---------------- */
+  /* ---------- PWA: manifest mein trip ka link bhi rakho, taaki app seedha usi trip par khule ---------- */
+  (function () {
+    try {
+      const m = {
+        name: 'ATC Transport - All India Transport Company',
+        short_name: 'ATC Transport',
+        id: new URL('track.html', location.href).pathname,
+        start_url: token ? new URL('track.html?t=' + encodeURIComponent(token), location.href).href
+                         : new URL('track.html', location.href).href,
+        scope: new URL('./', location.href).href,
+        display: 'standalone', orientation: 'portrait',
+        background_color: '#0e2a47', theme_color: '#0e2a47', lang: 'hi-IN',
+        icons: [
+          { src: new URL('icons/icon-192.png', location.href).href, sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: new URL('icons/icon-512.png', location.href).href, sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: new URL('icons/icon-maskable-512.png', location.href).href, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ]
+      };
+      $('manifestLink').href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
+    } catch (e) { /* static manifest.json chalega */ }
+  })();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); installEvt = e;
+    if (trip) $('btnInstall').hidden = false;
+  });
+  window.addEventListener('appinstalled', function () { $('btnInstall').hidden = true; installEvt = null; });
+  $('btnInstall').addEventListener('click', async function () {
+    if (!installEvt) return;
+    installEvt.prompt();
+    try { await installEvt.userChoice; } catch (e) { /* ignore */ }
+    installEvt = null; $('btnInstall').hidden = true;
+  });
+
+  /* ---------- helpers ---------- */
   function show(id) {
     ['stateLoading', 'stateInvalid', 'stateError', 'stateDone', 'stateMain'].forEach(function (s) {
       $(s).hidden = (s !== id);
     });
+    $('stateMain').style.display = (id === 'stateMain') ? 'grid' : 'none';
   }
   function loadQueue() {
     try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; }
@@ -112,33 +174,46 @@
   function saveQueue() {
     try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-300))); } catch (e) { /* ignore */ }
   }
-  function setBanner(kind, title, text) {
-    $('banner').className = 'track-banner ' + kind;
-    $('bannerTitle').textContent = title;
-    $('bannerText').textContent = text;
+
+  // Chhota status nishan (driver ko pata rahe ki location share ho rahi hai) + zaruri alerts
+  function setBanner(kind, title, text, denied) {
+    $('chip').className = 'chip ' + (kind || '');
+    $('chipText').textContent = title;
+    const bad = kind === 'bad';
+    $('alertBox').hidden = !bad;
+    $('alertText').textContent = bad ? (text || '') : '';
+    $('deniedSteps').hidden = !(bad && denied);
   }
-  function renderMetrics() {
-    $('metrics').hidden = !active;
-    $('mLast').textContent = lastSentAt ? U.timeAgo(lastSentAt) : 'abhi tak nahi';
-    $('mAcc').textContent = lastFix ? '±' + lastFix.acc + ' m' : '—';
-    $('mSent').textContent = sentCount;
-    $('mQueue').textContent = queue.length;
-  }
-  function renderButtons() {
-    $('btnStart').hidden = active || paused;
-  }
-  function renderTrip() {
-    const rows = [
-      ['Vehicle', trip.vehicleNo], ['Driver', trip.driverName], ['Party', trip.partyName],
-      ['Loading', trip.loadingLocation], ['Delivery', trip.deliveryLocation],
-      ['Material', trip.material], ['Remarks', trip.remarks]
-    ].filter(function (r) { return r[1]; });
-    $('tripKv').innerHTML = rows.map(function (r) {
-      return '<dt>' + U.esc(r[0]) + '</dt><dd>' + U.esc(r[1]) + '</dd>';
-    }).join('');
+  function renderButtons() { $('btnStart').hidden = active || paused; }
+
+  function fmtPlate(v) {
+    const s = String(v || '').toUpperCase().replace(/\s+/g, '');
+    const m = s.match(/^([A-Z]{2})(\d{1,2})([A-Z]{1,3})(\d{1,4})$/);
+    return m ? m.slice(1).join(' ') : s;
   }
 
-  /* ---------------- load trip ---------------- */
+  function renderTrip() {
+    $('plate').textContent = fmtPlate(trip.vehicleNo);
+    $('stFrom').textContent = trip.loadingLocation || '—';
+    $('stTo').textContent = trip.deliveryLocation || '—';
+    const st = $('tripStatus');
+    st.textContent = trip.status;
+    st.className = 'badge ' + (trip.status === 'In Transit' ? 'b-transit' : trip.status === 'Delivered' ? 'b-delivered' : 'b-loading');
+
+    const facts = [
+      ['Driver', trip.driverName], ['Party', trip.partyName],
+      ['Material', trip.material], ['Trip ID', trip.tripId]
+    ].filter(function (r) { return r[1]; });
+    let html = facts.map(function (r) {
+      return '<div class="fact"><div class="k">' + U.esc(r[0]) + '</div><div class="v">' + U.esc(r[1]) + '</div></div>';
+    }).join('');
+    if (trip.remarks) {
+      html += '<div class="fact full"><div class="k">Remarks</div><div class="v">' + U.esc(trip.remarks) + '</div></div>';
+    }
+    $('facts').innerHTML = html;
+  }
+
+  /* ---------- trip load ---------- */
   async function loadTrip() {
     show('stateLoading');
     if (!/^[A-Za-z0-9]{32,64}$/.test(token)) { show('stateInvalid'); return; }
@@ -146,44 +221,39 @@
     try {
       r = await U.api('getTrip', { token: token });
     } catch (e) {
-      $('errText').textContent = 'Internet / server se connect nahi ho pa raha. ' + (e.message || '');
+      $('errText').textContent = 'Internet / server se connect nahi ho pa raha.';
       show('stateError'); return;
     }
     if (!r || !r.ok) {
-      if (r && r.error === 'INVALID_LINK') show('stateInvalid');
-      else { $('errText').textContent = 'Server error. Thodi der baad try karein.'; show('stateError'); }
+      if (r && r.error === 'INVALID_LINK') {
+        try { localStorage.removeItem(LAST_KEY); } catch (e) { /* ignore */ }
+        show('stateInvalid');
+      } else { $('errText').textContent = 'Server error. Thodi der baad try karein.'; show('stateError'); }
       return;
     }
     trip = r.trip;
+    try { localStorage.setItem(LAST_KEY, token); } catch (e) { /* ignore */ }
     if (trip.status === 'Delivered') { show('stateDone'); return; }
+
     renderTrip();
     show('stateMain');
     renderButtons();
-    setBanner('', 'Tracking band hai', 'Location share karne ke liye neeche button dabayein.');
+    setBanner('', 'Location band');
+    if (installEvt) $('btnInstall').hidden = false;
 
     if (!window.isSecureContext) {
       setBanner('bad', 'HTTPS zaruri hai', 'Yeh page HTTPS par nahi khula, isliye GPS kaam nahi karega.');
       $('btnStart').disabled = true; return;
     }
-    showAppCard();
     if (trip.trackingState === 'Stopped') { setPaused(); return; }
-    startTracking(true);
-  }
-
-  // Android app ka link (config.js mein ANDROID_APK_URL set ho to) sirf Android par dikhao.
-  function showAppCard() {
-    if (cfg.ANDROID_APK_URL && /android/i.test(navigator.userAgent)) {
-      $('appLink').href = cfg.ANDROID_APK_URL;
-      $('appCard').hidden = false;
-    }
+    startTracking();
   }
 
   // Admin ne tracking roki hai: page khula rahe to chalu hote hi khud shuru ho jayega.
   function setPaused() {
     paused = true;
     renderButtons();
-    setBanner('', 'Tracking abhi band hai',
-      'TAB Solutions ne tracking roki hai. Jab dobara chalu hogi to yeh page apne aap shuru kar dega. Page khula rakhein.');
+    setBanner('', 'Tracking abhi band hai');
     clearInterval(resumeTimer);
     resumeTimer = setInterval(checkResume, 30000);
   }
@@ -193,22 +263,23 @@
       const r = await U.api('getTrip', { token: token });
       if (!r || !r.ok) return;
       if (r.trip.status === 'Delivered') { clearInterval(resumeTimer); show('stateDone'); return; }
+      trip = r.trip; renderTrip();
       if (r.trip.trackingState !== 'Stopped') {
         clearInterval(resumeTimer);
         paused = false;
-        startTracking(true);
+        startTracking();
       }
     } catch (e) { /* agli baar dobara */ }
   }
 
-  /* ---------------- tracking ---------------- */
-  async function startTracking(auto) {
+  /* ---------- tracking ---------- */
+  async function startTracking() {
     if (active) return;
     if (!navigator.geolocation) {
       setBanner('bad', 'GPS support nahi', 'Is browser mein location support nahi hai. Chrome ya Safari use karein.');
       return;
     }
-    $('denied').hidden = true;
+    $('deniedSteps').hidden = true;
 
     if (navigator.permissions && navigator.permissions.query) {
       try {
@@ -219,14 +290,12 @@
 
     active = true;
     renderButtons();
-    setBanner('warn', 'GPS dhoondh rahe hain…', 'Location permission "Allow" karein aur GPS signal ka intezaar karein.');
-    renderMetrics();
+    setBanner('warn', 'GPS dhoondh rahe hain…');
 
     watchId = navigator.geolocation.watchPosition(onPos, onGeoError, {
       enableHighAccuracy: true, maximumAge: 5000, timeout: 30000
     });
     timer = setInterval(tick, INTERVAL);
-    tickTimer = setInterval(renderMetrics, 1000);
     requestWakeLock();
     if (queue.length) flush();
   }
@@ -234,17 +303,13 @@
   function onDenied() {
     active = false;
     renderButtons();
-    $('denied').hidden = false;
-    setBanner('bad', 'Location permission nahi mili', 'Bina location permission ke tracking nahi ho sakti. Neeche diye steps follow karein.');
+    setBanner('bad', 'Location permission band', 'Location permission nahi mili. Bina iske ATC Transport ko gaadi ki location nahi mil sakti.', true);
   }
 
   function onGeoError(err) {
     if (err.code === 1) { stopLocal(); onDenied(); return; }
-    if (err.code === 2) {
-      setBanner('warn', 'GPS signal nahi mil raha', 'Khuli jagah par jaayein aur phone ka Location (GPS) ON rakhein.');
-    } else {
-      setBanner('warn', 'GPS slow hai', 'Location milne mein der ho rahi hai. Tracking koshish kar rahi hai…');
-    }
+    if (err.code === 2) setBanner('warn', 'GPS signal nahi mil raha');
+    else setBanner('warn', 'GPS slow hai');
   }
 
   function onPos(pos) {
@@ -261,7 +326,6 @@
     if (lastFix && lastFix.ts > lastQueuedTs) {
       enqueue(lastFix);
     } else if (!polling && navigator.geolocation) {
-      // watchPosition ruka hua ho (jaise gaadi khadi ho) to ek fresh reading maangein
       polling = true;
       navigator.geolocation.getCurrentPosition(function (pos) {
         polling = false; onPos(pos);
@@ -275,7 +339,6 @@
     queue.push({ lat: fix.lat, lng: fix.lng, acc: fix.acc, speed: fix.speed, ts: fix.ts });
     if (queue.length > 300) queue.splice(0, queue.length - 300);
     saveQueue();
-    renderMetrics();
     flush();
   }
 
@@ -288,41 +351,35 @@
       if (r && r.ok) {
         queue.splice(0, batch.length);
         saveQueue();
-        sentCount += batch.length;
-        lastSentAt = Date.now();
-        if (active) {
-          setBanner('on', 'Tracking ON ✓', 'Aapki location TAB Solutions ko live mil rahi hai. Is page ko khula rakhein.');
-        }
+        if (active) setBanner('on', 'Location ON ✓');
       } else if (r && r.error === 'TRIP_CLOSED') {
         queue = []; saveQueue(); stopLocal(); show('stateDone'); sending = false; return;
       } else if (r && r.error === 'TRACKING_STOPPED') {
         queue = []; saveQueue(); stopLocal(); setPaused(); sending = false; return;
-      } else if (r && (r.error === 'INVALID_LINK')) {
+      } else if (r && r.error === 'INVALID_LINK') {
         queue = []; saveQueue(); stopLocal(); show('stateInvalid'); sending = false; return;
       } else if (r && r.error === 'NO_VALID_POINTS') {
         queue.splice(0, batch.length); saveQueue();
       } else if (active) {
-        setBanner('warn', 'Tracking ON, server busy', 'Points save ho rahe hain, thodi der mein dobara bheje jayenge.');
+        setBanner('warn', 'Location ON · server busy');
       }
     } catch (e) {
-      if (active) setBanner('warn', 'Internet nahi hai', 'Location phone mein save ho rahi hai; net aate hi apne aap bhej di jayegi.');
+      if (active) setBanner('warn', 'Internet nahi · location save ho rahi hai');
     }
     sending = false;
-    renderMetrics();
-    if (queue.length >= 1 && lastSentAt && Date.now() - lastSentAt < 2000) flush();
+    if (queue.length && active && !document.hidden) setTimeout(flush, 1500);
   }
 
   function stopLocal() {
     active = false;
     if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-    clearInterval(timer); clearInterval(tickTimer); timer = tickTimer = null;
+    clearInterval(timer); timer = null;
     releaseWakeLock();
     lastQueuedTs = 0;
     renderButtons();
-    renderMetrics();
   }
 
-  /* ---------------- wake lock & visibility ---------------- */
+  /* ---------- wake lock & visibility ---------- */
   async function requestWakeLock() {
     try {
       if ('wakeLock' in navigator && active && !wakeLock) {
@@ -343,19 +400,13 @@
       requestWakeLock();
       const away = hiddenAt ? Date.now() - hiddenAt : 0;
       hiddenAt = 0;
-      if (away > 60000) {
-        setBanner('warn', 'Tracking ON (gap ho sakta hai)',
-          'Aap kuch der page se bahar the, us dauran location ruk sakti hai. Page khula rakhein.');
-      }
-      tick();
-      flush();
+      if (away > 60000) setBanner('warn', 'Location ON · gap ho sakta hai');
+      tick(); flush();
     }
   });
-
   window.addEventListener('online', function () { if (queue.length) flush(); });
 
-  /* ---------------- wiring ---------------- */
-  $('btnStart').addEventListener('click', function () { startTracking(false); });
+  $('btnStart').addEventListener('click', function () { startTracking(); });
   $('retryLoad').addEventListener('click', loadTrip);
 
   loadTrip();

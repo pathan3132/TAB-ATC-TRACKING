@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>TAB Solutions · Fleet Tracking Admin</title>
+<meta name="theme-color" content="#0e2a47">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ATC Admin">
+<title>ATC Transport · Fleet Tracking Admin</title>
+<link rel="manifest" href="manifest-admin.json">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -13,8 +20,10 @@
 <!-- ============ LOGIN ============ -->
 <div id="loginView" class="center-wrap">
   <form id="loginForm" class="login-card">
-    <h1>TAB Solutions</h1>
-    <div class="muted">Fleet tracking · Admin login</div>
+    <div style="text-align:center;margin-bottom:6px"><img src="icons/icon-192.png" alt="ATC" width="72" height="72"></div>
+    <h1 style="text-align:center;letter-spacing:.1em">ATC TRANSPORT</h1>
+    <div class="muted small" style="text-align:center;letter-spacing:.12em">ALL INDIA TRANSPORT COMPANY</div>
+    <div class="muted small" style="text-align:center">Munna &amp; Asif · Admin login</div>
     <label>Password
       <input type="password" id="pw" autocomplete="current-password" required>
     </label>
@@ -26,7 +35,7 @@
 <!-- ============ APP ============ -->
 <div id="appView" hidden>
   <header class="topbar">
-    <span class="brand">TAB Tracking</span>
+    <span class="brand">ATC Transport · Tracking</span>
     <nav class="tabs">
       <button class="tab-btn active" data-tab="live">Live map</button>
       <button class="tab-btn" data-tab="trips">Trips</button>
@@ -171,10 +180,10 @@
   }
 
   function waMessage(t) {
-    return 'Namaste ' + t.driverName + ', TAB Solutions ki taraf se aapki trip (' + t.vehicleNo +
-      ') ka tracking link:\n' + trackUrl(t.token) +
+    return 'Namaste ' + t.driverName + ', ATC Transport (All India Transport Company) ki taraf se aapki trip (' + t.vehicleNo +
+      ') ka link:\n' + trackUrl(t.token) +
       '\n\nLoading: ' + t.loadingLocation + '\nDelivery: ' + t.deliveryLocation +
-      '\n\nLink kholkar Location "Allow" karein aur poori trip mein page khula rakhein. Delivery ke baad "Trip complete" dabayein.';
+      '\n\nLink kholkar Location "Allow" karein aur trip ke dauran page khula rakhein.\n\n- ATC Transport (Munna & Asif)';
   }
 
   function sendWA(t) {
@@ -625,6 +634,11 @@
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   });
+
+  /* ---------------- PWA ---------------- */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
 
   /* ---------------- boot ---------------- */
   if (session) enterApp();
