@@ -100,9 +100,8 @@ const ROUTES = {
   login: login_,
   getTrip: getTrip_,
   postLocations: postLocations_,
-  stopTracking: stopTracking_,
-  completeTrip: completeTrip_,
-  // admin (session based)
+  // admin (session based) - stop / complete sirf admin ke paas hai
+  setTracking: admin_(setTracking_),
   createTrip: admin_(createTrip_),
   listTrips: admin_(listTrips_),
   setStatus: admin_(setStatus_),
@@ -312,13 +311,35 @@ function setStatus_(req) {
     const row = findRowById_(req.tripId);
     if (!row) return { ok: false, error: 'NOT_FOUND' };
     const sh = tripsSheet_();
+    const prev = readTrip_(row);
     sh.getRange(row, C.Status).setValue(req.status);
     if (req.status === 'Delivered') {
       sh.getRange(row, C.TrackingState).setValue('Stopped');
       sh.getRange(row, C.DeliveredAt).setValue(new Date());
     } else {
       sh.getRange(row, C.DeliveredAt).clearContent();
+      // Delivered trip dobara kholne par tracking dobara chalu ho sakti hai
+      if (prev.Status === 'Delivered') sh.getRange(row, C.TrackingState).setValue('Waiting');
     }
+    return { ok: true, trip: adminTrip_(readTrip_(row)) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Admin: tracking band (enabled=false) ya dobara chalu (enabled=true).
+// Driver ka page / app agle ping par khud band ho jata hai, aur chalu karne par khud shuru.
+function setTracking_(req) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const row = findRowById_(req.tripId);
+    if (!row) return { ok: false, error: 'NOT_FOUND' };
+    const trip = readTrip_(row);
+    if (trip.Status === 'Delivered') {
+      return { ok: false, error: 'VALIDATION', message: 'Trip Delivered hai. Pehle status badal kar trip dobara kholein.' };
+    }
+    tripsSheet_().getRange(row, C.TrackingState).setValue(req.enabled ? 'Waiting' : 'Stopped');
     return { ok: true, trip: adminTrip_(readTrip_(row)) };
   } finally {
     lock.releaseLock();
@@ -409,6 +430,7 @@ function postLocations_(req) {
     if (!row) return { ok: false, error: 'INVALID_LINK' };
     const trip = readTrip_(row);
     if (trip.Status === 'Delivered') return { ok: false, error: 'TRIP_CLOSED' };
+    if (trip.TrackingState === 'Stopped') return { ok: false, error: 'TRACKING_STOPPED' };
 
     const ls = locSheet_();
     const start = ls.getLastRow() + 1;
@@ -431,35 +453,6 @@ function postLocations_(req) {
     }
     if (!trip.StartedAt) sh.getRange(row, C.StartedAt).setValue(new Date(now));
     return { ok: true, saved: pts.length, serverTime: now };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function stopTracking_(req) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(15000);
-  try {
-    const row = findRowByToken_(req.token);
-    if (!row) return { ok: false, error: 'INVALID_LINK' };
-    const trip = readTrip_(row);
-    if (trip.Status !== 'Delivered') tripsSheet_().getRange(row, C.TrackingState).setValue('Stopped');
-    return { ok: true };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function completeTrip_(req) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(15000);
-  try {
-    const row = findRowByToken_(req.token);
-    if (!row) return { ok: false, error: 'INVALID_LINK' };
-    const sh = tripsSheet_();
-    sh.getRange(row, C.Status, 1, 2).setValues([['Delivered', 'Stopped']]);
-    sh.getRange(row, C.DeliveredAt).setValue(new Date());
-    return { ok: true };
   } finally {
     lock.releaseLock();
   }

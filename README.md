@@ -10,6 +10,8 @@ Google Sheets + Apps Script (backend) + static HTML (frontend, HTTPS hosting par
 | `config.js` | API URL, ping interval, stale time |
 | `common.js` | Shared helpers (API call, time format) |
 | `style.css` | Dono pages ki styling |
+| `index.html` | Site root se admin login par bhejta hai |
+| `android/` | Android app source (background location), `android/ANDROID_README.md` dekhein |
 | `admin.html` | Admin dashboard: login, new trip, live map, trips, route history |
 | `track.html` | Driver page (WhatsApp link se khulta hai) |
 
@@ -37,6 +39,15 @@ Google Sheets + Apps Script (backend) + static HTML (frontend, HTTPS hosting par
 1. **New trip** tab → details bharein → **Trip create karein**.
 2. **WhatsApp par driver ko bhejein** dabayein (wa.me khulega, message ready hoga).
 3. Driver link kholkar Location **Allow** kare → **Live map** par gaadi dikhne lagegi.
+
+## Kaun kya control karta hai
+
+- **Driver:** sirf link kholta hai aur location allow karta hai. Uske paas Stop / Complete button **nahi** hai.
+- **Admin:** Live map ya Trips table se **Tracking band / chalu** aur **Trip complete** dabata hai.
+  Driver ka page / app agle ping par khud band ho jata hai. Tracking dobara chalu karne par khud shuru ho jata hai.
+- Delivered trip dobara kholni ho to status dropdown se `In Transit` / `Loading` chunein.
+
+> Backend update ke baad Apps Script mein **Deploy → Manage deployments → Edit → New version → Deploy** zaroor karein.
 
 ## Security design
 

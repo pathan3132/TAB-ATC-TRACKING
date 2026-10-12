@@ -15,5 +15,9 @@ window.TAB_CONFIG = {
   // Optional: agar tracking page alag domain par ho to poora URL likhein
   // e.g. "https://track.tabsolutions.in/track.html". Khali chhodne par
   // admin.html wale folder ka track.html use hoga.
-  TRACK_PAGE_URL: ""
+  TRACK_PAGE_URL: "",
+
+  // Optional: Android app (APK) ka download link. Set karne par Android phone par
+  // driver page par "App download karein" button dikhta hai.
+  ANDROID_APK_URL: ""
 };

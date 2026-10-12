@@ -191,12 +191,40 @@
     return (Date.now() - t.lastTime) <= STALE_MS ? 'fresh' : 'stale';
   }
 
+  function ctrlButtons(t) {
+    if (t.status === 'Delivered') return '';
+    const stopped = t.trackingState === 'Stopped';
+    return (stopped
+      ? '<button class="btn sm green" data-act="resume">Tracking chalu</button>'
+      : '<button class="btn sm" data-act="stop">Tracking band</button>') +
+      '<button class="btn sm danger" data-act="complete">Trip complete</button>';
+  }
+
+  async function doControl(t, act) {
+    try {
+      let r;
+      if (act === 'complete') {
+        if (!confirm(t.vehicleNo + ' ki trip complete (Delivered) karni hai? Driver ki tracking band ho jayegi.')) return;
+        r = await call('setStatus', { tripId: t.tripId, status: 'Delivered' });
+      } else if (act === 'stop') {
+        if (!confirm(t.vehicleNo + ' ki tracking band karni hai? Driver ka page/app location bhejna rok dega.')) return;
+        r = await call('setTracking', { tripId: t.tripId, enabled: false });
+      } else {
+        r = await call('setTracking', { tripId: t.tripId, enabled: true });
+      }
+      if (!r.ok) throw new Error(r.message || 'Action nahi hua.');
+      toast(act === 'complete' ? 'Trip complete ho gayi' : act === 'stop' ? 'Tracking band ki gayi' : 'Tracking chalu ki gayi');
+      loadTrips(true);
+    } catch (err) { toast(err.message, true); }
+  }
+
   function statusBadge(s) {
     const cls = s === 'Delivered' ? 'b-delivered' : s === 'In Transit' ? 'b-transit' : 'b-loading';
     return '<span class="badge ' + cls + '">' + esc(s) + '</span>';
   }
 
   function liveBadge(t) {
+    if (t.status !== 'Delivered' && t.trackingState === 'Stopped') return '<span class="badge b-off">Tracking band (admin)</span>';
     const f = freshness(t);
     if (f === 'fresh') return '<span class="badge b-live">Live</span>';
     if (f === 'stale') return '<span class="badge b-stale">Purani location</span>';
@@ -354,7 +382,8 @@
         '<div class="small">' + esc(t.driverName) + ' · ' + esc(t.partyName) + '</div>' +
         '<div class="small muted">' + esc(t.loadingLocation) + ' → ' + esc(t.deliveryLocation) + '</div>' +
         '<div class="small">' + statusBadge(t.status) + ' &nbsp;' + esc(U.timeAgo(t.lastTime)) +
-        (t.lastAcc != null ? ' · ±' + esc(t.lastAcc) + ' m' : '') + '</div></div>';
+        (t.lastAcc != null ? ' · ±' + esc(t.lastAcc) + ' m' : '') + '</div>' +
+        '<div class="actions" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">' + ctrlButtons(t) + '</div></div>';
     }).join('');
   }
 
@@ -369,6 +398,12 @@
   $('liveList').addEventListener('click', function (e) {
     const el = e.target.closest('.live-item[data-trip]');
     if (!el) return;
+    const cb = e.target.closest('button[data-act]');
+    if (cb) {
+      const tt = trips.find(function (x) { return x.tripId === el.dataset.trip; });
+      if (tt) doControl(tt, cb.dataset.act);
+      return;
+    }
     const m = liveMarkers[el.dataset.trip];
     if (!m) { toast('Is gaadi ki location abhi nahi aayi.'); return; }
     liveMap.setView(m.marker.getLatLng(), Math.max(liveMap.getZoom(), 14));
@@ -408,6 +443,7 @@
         '<td>' + liveBadge(t) + '<div class="small muted">' + esc(t.trackingState || '') + ' · ' + esc(U.timeAgo(t.lastTime)) +
         (t.lastAcc != null ? ' · ±' + esc(t.lastAcc) + ' m' : '') + '</div></td>' +
         '<td><div class="actions">' +
+        ctrlButtons(t) +
         '<button class="btn sm green" data-act="wa">WhatsApp</button>' +
         '<button class="btn sm" data-act="copy">Link</button>' +
         '<button class="btn sm" data-act="map">Map</button>' +
@@ -426,7 +462,8 @@
     const t = trips.find(function (x) { return x.tripId === tr.dataset.trip; });
     if (!t) return;
     const act = btn.dataset.act;
-    if (act === 'wa') sendWA(t);
+    if (act === 'stop' || act === 'resume' || act === 'complete') doControl(t, act);
+    else if (act === 'wa') sendWA(t);
     else if (act === 'copy') copyText(trackUrl(t.token));
     else if (act === 'map') {
       showTab('live');
