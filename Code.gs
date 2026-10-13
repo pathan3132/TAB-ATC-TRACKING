@@ -1,5 +1,5 @@
 /**
- * TAB Solutions – Link-Based Driver Live Tracking
+ * ATC Transport – Link-Based Driver Live Tracking
  * Backend: Google Apps Script (container-bound to a Google Sheet)
  *
  * Sheets used:
@@ -7,7 +7,8 @@
  *   Locations  -> har GPS ping ek row (history / route)
  *
  * Script Properties (Project Settings > Script properties):
- *   ADMIN_PASSWORD -> admin login password (aap set karte hain)
+ *   ADMIN_USERS    -> team logins (JSON), e.g. {"munna":"pass1","asif":"pass2","staff":"pass3"}
+ *   ADMIN_PASSWORD -> (purana tareeka) ek hi password; ADMIN_USERS na ho tabhi chalta hai, user = admin
  *   SECRET         -> setup() khud generate karta hai (session signing key)
  */
 
@@ -17,7 +18,7 @@ const TRIP_HEADERS = [
   'TripID', 'Token', 'CreatedAt', 'VehicleNo', 'DriverName', 'DriverMobile',
   'PartyName', 'PartyMobile', 'LoadingLocation', 'DeliveryLocation', 'Material',
   'Freight', 'Remarks', 'Status', 'TrackingState', 'LastLat', 'LastLng',
-  'LastAcc', 'LastTime', 'StartedAt', 'DeliveredAt'
+  'LastAcc', 'LastTime', 'StartedAt', 'DeliveredAt', 'DeviceId', 'CreatedBy'
 ];
 const LOC_HEADERS = ['TripID', 'DeviceTime', 'ServerTime', 'Lat', 'Lng', 'Accuracy', 'SpeedKmh'];
 const STATUSES = ['Loading', 'In Transit', 'Delivered'];
@@ -37,8 +38,14 @@ function setup() {
   const t = getOrCreateSheet_(ss, SHEET_TRIPS, TRIP_HEADERS);
   const l = getOrCreateSheet_(ss, SHEET_LOC, LOC_HEADERS);
 
+  if (t.getMaxColumns() < TRIP_HEADERS.length) {
+    t.insertColumnsAfter(t.getMaxColumns(), TRIP_HEADERS.length - t.getMaxColumns());
+  }
+  // purani sheet mein naye columns (DeviceId, CreatedBy) ke header jod do
+  t.getRange(1, 1, 1, TRIP_HEADERS.length).setValues([TRIP_HEADERS]).setFontWeight('bold');
+
   const tRows = Math.max(1, t.getMaxRows() - 1);
-  ['TripID', 'Token', 'VehicleNo', 'DriverMobile', 'PartyMobile'].forEach(function (h) {
+  ['TripID', 'Token', 'VehicleNo', 'DriverMobile', 'PartyMobile', 'DeviceId'].forEach(function (h) {
     t.getRange(2, C[h], tRows, 1).setNumberFormat('@');
   });
   ['CreatedAt', 'LastTime', 'StartedAt', 'DeliveredAt'].forEach(function (h) {
@@ -52,8 +59,8 @@ function setup() {
   if (!props.getProperty('SECRET')) {
     props.setProperty('SECRET', Utilities.getUuid() + Utilities.getUuid());
   }
-  if (!props.getProperty('ADMIN_PASSWORD')) {
-    Logger.log('ZARURI: Project Settings > Script properties mein ADMIN_PASSWORD add karein.');
+  if (!props.getProperty('ADMIN_USERS') && !props.getProperty('ADMIN_PASSWORD')) {
+    Logger.log('ZARURI: Project Settings > Script properties mein ADMIN_USERS (ya ADMIN_PASSWORD) add karein.');
   } else {
     Logger.log('Setup complete. Ab Deploy > New deployment > Web app karein.');
   }
@@ -73,7 +80,7 @@ function getOrCreateSheet_(ss, name, headers) {
 /*  HTTP entry points                                                  */
 /* ------------------------------------------------------------------ */
 function doGet() {
-  return json_({ ok: true, service: 'TAB Tracking API', time: Date.now() });
+  return json_({ ok: true, service: 'ATC Tracking API', time: Date.now() });
 }
 
 function doPost(e) {
@@ -103,6 +110,7 @@ const ROUTES = {
   // admin (session based) - stop / complete sirf admin ke paas hai
   setTracking: admin_(setTracking_),
   createTrip: admin_(createTrip_),
+  resetDevice: admin_(resetDevice_),
   listTrips: admin_(listTrips_),
   setStatus: admin_(setStatus_),
   getHistory: admin_(getHistory_),
@@ -111,7 +119,9 @@ const ROUTES = {
 
 function admin_(fn) {
   return function (req) {
-    if (!checkSession_(req.session)) return { ok: false, error: 'UNAUTHORIZED' };
+    const user = checkSession_(req.session);
+    if (!user) return { ok: false, error: 'UNAUTHORIZED' };
+    req.adminUser = user;
     return fn(req);
   };
 }
@@ -119,19 +129,42 @@ function admin_(fn) {
 /* ------------------------------------------------------------------ */
 /*  Auth (admin)                                                       */
 /* ------------------------------------------------------------------ */
+// Team logins: ADMIN_USERS = {"munna":"pass1","asif":"pass2"}; na ho to purana ADMIN_PASSWORD (user = admin)
+function getUsers_() {
+  const props = PropertiesService.getScriptProperties();
+  const raw = props.getProperty('ADMIN_USERS');
+  if (raw) {
+    try {
+      const o = JSON.parse(raw);
+      const out = {};
+      Object.keys(o).forEach(function (k) {
+        const u = String(k).toLowerCase().trim();
+        if (/^[a-z0-9_]{2,20}$/.test(u) && o[k]) out[u] = String(o[k]);
+      });
+      return out;
+    } catch (e) { return {}; }
+  }
+  const pw = props.getProperty('ADMIN_PASSWORD');
+  return pw ? { admin: pw } : {};
+}
+
 function login_(req) {
+  const legacy = !PropertiesService.getScriptProperties().getProperty('ADMIN_USERS');
+  const user = legacy ? 'admin' : String(req.username || '').toLowerCase().trim().slice(0, 20);
   const cache = CacheService.getScriptCache();
-  const fails = Number(cache.get('loginFails') || 0);
+  const key = 'loginFails_' + user.replace(/[^a-z0-9_]/g, '');
+  const fails = Number(cache.get(key) || 0);
   if (fails >= 5) {
     return { ok: false, error: 'LOCKED', message: 'Bahut zyada galat attempts. 15 minute baad try karein.' };
   }
-  const pw = PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD');
-  if (pw && safeEq_(String(req.password || ''), pw)) {
-    cache.remove('loginFails');
-    return { ok: true, session: makeSession_() };
+  const users = getUsers_();
+  const has = Object.prototype.hasOwnProperty.call(users, user);
+  if (has && safeEq_(String(req.password || ''), users[user])) {
+    cache.remove(key);
+    return { ok: true, session: makeSession_(user), user: user };
   }
-  cache.put('loginFails', String(fails + 1), 900);
-  return { ok: false, error: 'BAD_PASSWORD', message: 'Password galat hai.' };
+  cache.put(key, String(fails + 1), 900);
+  return { ok: false, error: 'BAD_PASSWORD', message: 'Username ya password galat hai.' };
 }
 
 function sign_(s) {
@@ -139,17 +172,21 @@ function sign_(s) {
   return Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(s, secret));
 }
 
-function makeSession_() {
-  const payload = String(Date.now() + SESSION_HOURS * 3600 * 1000);
+function makeSession_(user) {
+  const payload = String(Date.now() + SESSION_HOURS * 3600 * 1000) + ':' + user;
   return payload + '.' + sign_(payload);
 }
 
+// Valid session par username return karta hai, warna null. Hataya gaya user turant bahar ho jata hai.
 function checkSession_(tok) {
-  if (!tok || typeof tok !== 'string') return false;
+  if (!tok || typeof tok !== 'string') return null;
   const parts = tok.split('.');
-  if (parts.length !== 2) return false;
-  if (!safeEq_(sign_(parts[0]), parts[1])) return false;
-  return Number(parts[0]) > Date.now();
+  if (parts.length !== 2) return null;
+  if (!safeEq_(sign_(parts[0]), parts[1])) return null;
+  const pl = parts[0].split(':');
+  if (pl.length !== 2 || !(Number(pl[0]) > Date.now())) return null;
+  const users = getUsers_();
+  return Object.prototype.hasOwnProperty.call(users, pl[1]) ? pl[1] : null;
 }
 
 function safeEq_(a, b) {
@@ -211,7 +248,8 @@ function adminTrip_(t) {
     material: t.Material, freight: t.Freight, remarks: t.Remarks,
     status: t.Status, trackingState: t.TrackingState,
     lastLat: num_(t.LastLat), lastLng: num_(t.LastLng), lastAcc: num_(t.LastAcc),
-    lastTime: ms_(t.LastTime), startedAt: ms_(t.StartedAt), deliveredAt: ms_(t.DeliveredAt)
+    lastTime: ms_(t.LastTime), startedAt: ms_(t.StartedAt), deliveredAt: ms_(t.DeliveredAt),
+    deviceBound: !!t.DeviceId, createdBy: t.CreatedBy || ''
   };
 }
 
@@ -282,7 +320,8 @@ function createTrip_(req) {
       PartyMobile: partyMobile, LoadingLocation: loading, DeliveryLocation: delivery,
       Material: clean_(t.material, 120), Freight: clean_(t.freight, 40),
       Remarks: clean_(t.remarks, 300), Status: 'Loading', TrackingState: 'Not started',
-      LastLat: '', LastLng: '', LastAcc: '', LastTime: '', StartedAt: '', DeliveredAt: ''
+      LastLat: '', LastLng: '', LastAcc: '', LastTime: '', StartedAt: '', DeliveredAt: '',
+      DeviceId: '', CreatedBy: req.adminUser || ''
     };
     sh.appendRow(TRIP_HEADERS.map(function (h) { return obj[h]; }));
     return { ok: true, trip: adminTrip_(obj) };
@@ -353,7 +392,23 @@ function regenerateToken_(req) {
   try {
     const row = findRowById_(req.tripId);
     if (!row) return { ok: false, error: 'NOT_FOUND' };
-    tripsSheet_().getRange(row, C.Token).setValue(newToken_());
+    const sh = tripsSheet_();
+    sh.getRange(row, C.Token).setValue(newToken_());
+    sh.getRange(row, C.DeviceId).clearContent();
+    return { ok: true, trip: adminTrip_(readTrip_(row)) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Driver phone badal gaya / app install kiya: link ko naye phone par chalane ke liye device lock hatayein.
+function resetDevice_(req) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const row = findRowById_(req.tripId);
+    if (!row) return { ok: false, error: 'NOT_FOUND' };
+    tripsSheet_().getRange(row, C.DeviceId).clearContent();
     return { ok: true, trip: adminTrip_(readTrip_(row)) };
   } finally {
     lock.releaseLock();
@@ -391,10 +446,20 @@ function getHistory_(req) {
 /* ------------------------------------------------------------------ */
 /*  Driver actions (token = secret link)                               */
 /* ------------------------------------------------------------------ */
+// Trip ki details yahan se NAHI milti. Details sirf tab milti hain jab driver ki location
+// postLocations se accept ho jaye (yani driver ne location allow ki).
 function getTrip_(req) {
   const row = findRowByToken_(req.token);
   if (!row) return { ok: false, error: 'INVALID_LINK' };
-  return { ok: true, trip: publicTrip_(readTrip_(row)), serverTime: Date.now() };
+  const t = readTrip_(row);
+  const bound = String(t.DeviceId || '');
+  const dev = String(req.deviceId || '');
+  return {
+    ok: true,
+    trip: { status: t.Status, trackingState: t.TrackingState },
+    linkInUse: !!(bound && bound !== dev),
+    serverTime: Date.now()
+  };
 }
 
 function validatePoint_(p, now) {
@@ -416,6 +481,8 @@ function validatePoint_(p, now) {
 
 function postLocations_(req) {
   const now = Date.now();
+  const dev = String(req.deviceId || '');
+  if (!/^[A-Za-z0-9]{16,40}$/.test(dev)) return { ok: false, error: 'BAD_DEVICE' };
   const pts = (Array.isArray(req.points) ? req.points : [])
     .slice(0, MAX_POINTS_PER_POST)
     .map(function (p) { return validatePoint_(p, now); })
@@ -430,6 +497,9 @@ function postLocations_(req) {
     if (!row) return { ok: false, error: 'INVALID_LINK' };
     const trip = readTrip_(row);
     if (trip.Status === 'Delivered') return { ok: false, error: 'TRIP_CLOSED' };
+    // Link pehle phone par bind ho jata hai; doosre phone par chalane par LINK_IN_USE
+    const bound = String(trip.DeviceId || '');
+    if (bound && bound !== dev) return { ok: false, error: 'LINK_IN_USE' };
     if (trip.TrackingState === 'Stopped') return { ok: false, error: 'TRACKING_STOPPED' };
 
     const ls = locSheet_();
@@ -452,7 +522,9 @@ function postLocations_(req) {
       sh.getRange(row, C.Status, 1, 2).setValues([[status, 'Active']]);
     }
     if (!trip.StartedAt) sh.getRange(row, C.StartedAt).setValue(new Date(now));
-    return { ok: true, saved: pts.length, serverTime: now };
+    if (!bound) sh.getRange(row, C.DeviceId).setValue(dev);
+    const pub = publicTrip_(Object.assign({}, trip, { Status: status, TrackingState: 'Active' }));
+    return { ok: true, saved: pts.length, serverTime: now, trip: pub };
   } finally {
     lock.releaseLock();
   }

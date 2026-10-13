@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ATC Transport">
+<title>ATC Transport · Trip Details</title>
+<link rel="manifest" id="manifestLink" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+/* Is page ki poori styling yahin hai (style.css par nirbhar nahi), taaki purani cached file se kharab na ho */
+:root{
+  --blue:#0c3b8f; --blue-dark:#082a66; --orange:#f26a00; --green:#138808;
+  --ink:#12263f; --soft:#5b6b7f; --line:#dde3ec; --bg:#f1f4f9; --card:#fff;
+  --amber:#ffd23f; --danger:#c8342b; --warn:#e07b00;
+  --font: system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans","Noto Sans Devanagari",Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:17px;line-height:1.45;-webkit-text-size-adjust:100%}
+[hidden]{display:none!important}
+.app{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:var(--bg)}
+
+/* ---------- header ---------- */
+.top{background:#fff;text-align:center;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 12px}
+.top img{display:block;margin:0 auto;width:min(58vw,230px);height:auto}
+.top .owners{margin-top:2px;font-size:.82rem;letter-spacing:.16em;color:var(--soft);font-weight:700;text-transform:uppercase}
+.tricolor{height:6px;background:linear-gradient(90deg,var(--orange) 0 33.3%,#fff 33.3% 66.6%,var(--green) 66.6% 100%);border-bottom:1px solid var(--line)}
+
+main{padding:16px 14px 8px;display:grid;gap:14px;align-content:start;flex:1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 4px 14px rgba(12,59,143,.08);overflow:hidden}
+.pad{padding:20px 18px}
+.center{text-align:center}
+h2{margin:0 0 6px;font-size:1.3rem;line-height:1.25;color:var(--blue-dark)}
+p{margin:0 0 10px}
+.muted{color:var(--soft)}
+.small{font-size:.86rem}
+
+/* ---------- buttons ---------- */
+.btn{display:block;width:100%;min-height:58px;font:inherit;font-size:1.1rem;font-weight:800;border:0;border-radius:14px;padding:14px 16px;cursor:pointer;color:#fff;background:var(--green);box-shadow:0 4px 0 rgba(0,0,0,.18)}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18)}
+.btn.blue{background:var(--blue)}
+.btn.light{background:#fff;color:var(--blue);border:2px solid var(--blue);box-shadow:none;min-height:50px}
+.btn:disabled{opacity:.55}
+
+/* ---------- loader / info ---------- */
+.spin{width:38px;height:38px;border-radius:50%;border:4px solid #dfe6f1;border-top-color:var(--blue);margin:6px auto 12px;animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:3s}}
+.bigicon{width:76px;height:76px;margin:0 auto 10px;border-radius:50%;display:grid;place-items:center;font-size:2.2rem;background:#e8f0fe}
+.bigicon.bad{background:#fde7e5}.bigicon.ok{background:#dff3e3}.bigicon.warn{background:#fff0dc}
+
+/* ---------- location gate ---------- */
+.steps{list-style:none;margin:14px 0 18px;padding:0;display:grid;gap:10px;text-align:left}
+.steps li{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;background:#f6f8fc;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.steps .n{width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;font-weight:800;display:grid;place-items:center}
+.gate-msg{margin:12px 0 0;font-weight:700;min-height:1.4em}
+.gate-msg.wait{color:var(--blue)}.gate-msg.warn{color:var(--warn)}.gate-msg.bad{color:var(--danger)}
+.denied{margin-top:16px;border:2px solid var(--danger);background:#fff3f2;border-radius:12px;padding:14px;text-align:left}
+.denied b{color:var(--danger)}
+.denied ol{margin:8px 0 12px 20px;padding:0}
+.denied li{margin:4px 0}
+.privacy{margin-top:14px;font-size:.84rem;color:var(--soft)}
+
+/* ---------- trip screen ---------- */
+.live{display:flex;gap:10px;align-items:center;border-radius:14px;padding:12px 14px;font-weight:800;font-size:.98rem;background:#e3f5e7;color:#0b6420;border:1px solid #bfe5c7}
+.live i{width:12px;height:12px;border-radius:50%;background:var(--green);flex:none;animation:pl 1.8s infinite}
+.live.warn{background:#fff1de;color:#8a4a00;border-color:#f4d3a6}.live.warn i{background:var(--warn);animation:none}
+.live.bad{background:#fde7e5;color:#8f1d16;border-color:#f3c0bb}.live.bad i{background:var(--danger);animation:none}
+.live.idle{background:#e9eef6;color:#33475f;border-color:var(--line)}.live.idle i{background:#8a98ab;animation:none}
+@keyframes pl{0%{box-shadow:0 0 0 0 rgba(19,136,8,.5)}70%{box-shadow:0 0 0 12px rgba(19,136,8,0)}100%{box-shadow:0 0 0 0 rgba(19,136,8,0)}}
+@media (prefers-reduced-motion:reduce){.live i{animation:none}}
+
+.lbl{font-size:.78rem;font-weight:800;letter-spacing:.06em;color:var(--soft);text-transform:uppercase}
+.lbl small{display:block;text-transform:none;letter-spacing:0;font-weight:600;font-size:.74rem}
+.vehicle{padding:18px 16px 16px;text-align:center}
+.plate{display:inline-block;margin-top:8px;background:var(--amber);color:#111;border:3px solid #111;border-radius:10px;padding:6px 18px;font-weight:900;font-size:clamp(1.5rem,8vw,2.1rem);letter-spacing:.09em;line-height:1.2;font-family:"Arial Black",Impact,"Liberation Sans",Arial,sans-serif;box-shadow:inset 0 0 0 2px var(--amber),inset 0 0 0 3px #111}
+.stbadge{display:inline-block;margin-top:12px;padding:5px 14px;border-radius:999px;font-weight:800;font-size:.9rem;background:#e9eef6;color:#33475f}
+.stbadge.transit{background:#fff0cc;color:#7a5200}.stbadge.done{background:#dff3e3;color:#0b6420}
+
+.route{padding:16px 16px 14px}
+.stop{display:grid;grid-template-columns:34px 1fr;gap:12px;position:relative}
+.stop+.stop{margin-top:16px}
+.stop .pin{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:1.05rem;color:#fff;z-index:1}
+.stop.from .pin{background:var(--blue)}.stop.to .pin{background:var(--orange)}
+.stop.from::after{content:"";position:absolute;left:16px;top:34px;bottom:-16px;width:2px;background:repeating-linear-gradient(to bottom,var(--blue) 0 5px,transparent 5px 10px)}
+.stop .v{font-size:1.28rem;font-weight:800;color:var(--blue-dark);word-break:break-word;line-height:1.25}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr}
+.cell{padding:14px 16px;border-top:1px solid var(--line);min-width:0}
+.cell:nth-child(odd){border-right:1px solid var(--line)}
+.cell.full{grid-column:1/-1;border-right:0}
+.cell .v{font-size:1.08rem;font-weight:800;word-break:break-word;margin-top:2px}
+.note{background:#fff7e0;border:2px solid #f2c94c;border-radius:16px;padding:14px 16px}
+.note .v{font-size:1.1rem;font-weight:700;word-break:break-word;margin-top:4px}
+
+.foot{text-align:center;padding:18px 16px calc(22px + env(safe-area-inset-bottom,0px));color:var(--soft);font-size:.8rem;line-height:1.6}
+.foot b{color:var(--blue-dark);letter-spacing:.06em}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="top">
+      <img src="icons/atc-logo.png" alt="ATC - All India Transport Company" width="230" height="218">
+      <div class="owners">Munna &amp; Asif</div>
+    </div>
+    <div class="tricolor"></div>
+  </header>
+
+  <main>
+    <noscript><div class="card pad center"><b>Is page ko chalane ke liye JavaScript ON karein.</b></div></noscript>
+
+    <!-- 1. Loading -->
+    <section id="sLoading" class="card pad center">
+      <div class="spin" aria-hidden="true"></div>
+      <div class="muted">Load ho raha hai…</div>
+    </section>
+
+    <!-- 2. Location gate: jab tak location allow nahi, trip details nahi -->
+    <section id="sGate" class="card pad center" hidden>
+      <div class="bigicon" aria-hidden="true">📍</div>
+      <h2>Trip details dekhne ke liye<br>Location “Allow” karein</h2>
+      <p class="muted" style="margin:0">ट्रिप की जानकारी देखने के लिए लोकेशन “Allow” करें</p>
+
+      <ol class="steps">
+        <li><span class="n">1</span><span>Neeche <b>hare button</b> ko dabayein.</span></li>
+        <li><span class="n">2</span><span>Phone puchhe <b>“Location access?”</b> to <b>Allow</b> (अनुमति दें) dabayein.</span></li>
+        <li><span class="n">3</span><span>Phone ka <b>Location / GPS ON</b> rakhein. Uske baad trip details khul jayengi.</span></li>
+      </ol>
+
+      <button class="btn" id="btnAllow">📍 Location Allow karein</button>
+      <div class="gate-msg" id="gateMsg" role="status"></div>
+
+      <div class="denied" id="gateDenied" hidden>
+        <b>Location band hai. Ise chalu karna zaruri hai.</b>
+        <ol>
+          <li>Browser ke upar address bar mein <b>🔒</b> (ya ⓘ) dabayein.</li>
+          <li><b>Permissions / Location</b> mein jaakar <b>Allow</b> chunein.</li>
+          <li>Phone ki Settings mein Location (GPS) ON hai ya nahi, dekh lein.</li>
+          <li>Phir niche <b>Dobara try karein</b> dabayein.</li>
+        </ol>
+        <button class="btn blue" id="btnRetry">Dobara try karein</button>
+      </div>
+      <div class="privacy">🔒 Aapki location sirf is trip ke liye ATC Transport ko dikhegi.</div>
+    </section>
+
+    <!-- 3. Trip details (location milne ke baad) -->
+    <div id="sTrip" hidden style="display:none">
+      <div id="live" class="live idle"><i></i><span id="liveText">Location check ho rahi hai…</span></div>
+
+      <section class="card vehicle" aria-label="Gaadi">
+        <div class="lbl">गाड़ी नंबर<small>Vehicle number</small></div>
+        <div class="plate" id="plate">—</div><br>
+        <span class="stbadge" id="stBadge">—</span>
+      </section>
+
+      <section class="card route" aria-label="Route">
+        <div class="stop from">
+          <span class="pin">⬆</span>
+          <div><div class="lbl">कहाँ से (Loading)<small>Maal yahan se bharna hai</small></div><div class="v" id="stFrom">—</div></div>
+        </div>
+        <div class="stop to">
+          <span class="pin">⬇</span>
+          <div><div class="lbl">कहाँ तक (Delivery)<small>Maal yahan pahunchana hai</small></div><div class="v" id="stTo">—</div></div>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Details">
+        <div class="grid2" id="cells"></div>
+      </section>
+
+      <section class="note" id="noteBox" hidden>
+        <div class="lbl">खास निर्देश<small>Remarks / Instructions</small></div>
+        <div class="v" id="noteText"></div>
+      </section>
+
+      <button class="btn light" id="btnInstall" hidden>📲 Is ko app ki tarah install karein</button>
+    </div>
+
+    <!-- 4. Info screens: invalid / in-use / paused / done / error -->
+    <section id="sInfo" class="card pad center" hidden>
+      <div class="bigicon" id="infoIcon" aria-hidden="true">ℹ️</div>
+      <h2 id="infoTitle"></h2>
+      <p id="infoText" class="muted"></p>
+      <button class="btn blue" id="btnInfoRetry" hidden>Dobara try karein</button>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <b>ATC TRANSPORT</b> · All India Transport Company<br>
+    Munna &amp; Asif · <span>v3</span>
+  </footer>
+</div>
+
+<script src="config.js?v=3"></script>
+<script src="common.js?v=3"></script>
+<script>
+(function () {
+  const U = window.TAB, cfg = U.cfg;
+  const $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- device id: link sirf pehle phone par chalta hai ---------- */
+  function getDevice() {
+    let d = '';
+    try { d = localStorage.getItem('atc_device') || ''; } catch (e) { /* ignore */ }
+    if (!/^[A-Za-z0-9]{16,40}$/.test(d)) {
+      const a = new Uint8Array(16);
+      (window.crypto || window.msCrypto).getRandomValues(a);
+      d = Array.prototype.map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+      try { localStorage.setItem('atc_device', d); } catch (e) { /* ignore */ }
+    }
+    return d;
+  }
+  const device = getDevice();
+
+  /* ---------- token (link se; PWA se khulne par pichla trip) ---------- */
+  const LAST_KEY = 'atc_last_token';
+  let token = new URLSearchParams(location.search).get('t') || '';
+  if (!token) { try { token = localStorage.getItem(LAST_KEY) || ''; } catch (e) { /* ignore */ } }
+
+  const INTERVAL = Math.max(10, Number(cfg.PING_INTERVAL_SEC) || 30) * 1000;
+  const QUEUE_KEY = 'atc_driver_queue_' + token.slice(0, 12);
+
+  let trip = null, unlocked = false;
+  let watchId = null, timer = null, wakeLock = null, resumeTimer = null, firstFixTimer = null, permObj = null;
+  let active = false, sending = false, polling = false, paused = false;
+  let lastFix = null, lastQueuedTs = 0, hiddenAt = 0;
+  let queue = loadQueue();
+
+  /* ---------- PWA ---------- */
+  (function () {
+    try {
+      const m = {
+        name: 'ATC Transport - All India Transport Company', short_name: 'ATC Transport',
+        id: new URL('track.html', location.href).pathname,
+        start_url: token ? new URL('track.html?t=' + encodeURIComponent(token), location.href).href
+                         : new URL('track.html', location.href).href,
+        scope: new URL('./', location.href).href,
+        display: 'standalone', orientation: 'portrait',
+        background_color: '#ffffff', theme_color: '#ffffff', lang: 'hi-IN',
+        icons: [
+          { src: new URL('icons/icon-192.png', location.href).href, sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: new URL('icons/icon-512.png', location.href).href, sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: new URL('icons/icon-maskable-512.png', location.href).href, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+        ]
+      };
+      $('manifestLink').href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
+    } catch (e) { /* static manifest.json chalega */ }
+  })();
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+  let installEvt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); installEvt = e;
+    if (unlocked) $('btnInstall').hidden = false;
+  });
+  window.addEventListener('appinstalled', function () { $('btnInstall').hidden = true; installEvt = null; });
+  $('btnInstall').addEventListener('click', async function () {
+    if (!installEvt) return;
+    installEvt.prompt();
+    try { await installEvt.userChoice; } catch (e) { /* ignore */ }
+    installEvt = null; $('btnInstall').hidden = true;
+  });
+
+  /* ---------- screens ---------- */
+  function screen(id) {
+    ['sLoading', 'sGate', 'sInfo'].forEach(function (s) { $(s).hidden = (s !== id); });
+    const t = (id === 'sTrip');
+    $('sTrip').hidden = !t;
+    $('sTrip').style.display = t ? 'grid' : 'none';
+    $('sTrip').style.gap = '14px';
+  }
+  function info(icon, kind, title, text, retry) {
+    stopLocal(); clearInterval(resumeTimer);
+    $('infoIcon').textContent = icon;
+    $('infoIcon').className = 'bigicon ' + (kind || '');
+    $('infoTitle').textContent = title;
+    $('infoText').textContent = text || '';
+    $('btnInfoRetry').hidden = !retry;
+    screen('sInfo');
+  }
+  function setGate(msg, kind) {
+    const g = $('gateMsg');
+    g.textContent = msg || '';
+    g.className = 'gate-msg ' + (kind || '');
+  }
+  function showDenied(v) {
+    $('gateDenied').hidden = !v;
+    $('btnAllow').hidden = !!v;
+    if (v) setGate('', '');
+  }
+  function setLive(kind, text) {
+    $('live').className = 'live ' + (kind || 'idle');
+    $('liveText').textContent = text;
+  }
+
+  function loadQueue() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveQueue() {
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-300))); } catch (e) { /* ignore */ }
+  }
+
+  /* ---------- trip render (sirf location milne ke baad) ---------- */
+  function fmtPlate(v) {
+    const s = String(v || '').toUpperCase().replace(/\s+/g, '');
+    const m = s.match(/^([A-Z]{2})(\d{1,2})([A-Z]{1,3})(\d{1,4})$/);
+    return m ? m.slice(1).join(' ') : s;
+  }
+  function renderTrip() {
+    $('plate').textContent = fmtPlate(trip.vehicleNo);
+    $('stFrom').textContent = trip.loadingLocation || '—';
+    $('stTo').textContent = trip.deliveryLocation || '—';
+    const b = $('stBadge');
+    if (trip.status === 'In Transit') { b.textContent = 'Trip chal rahi hai (In Transit)'; b.className = 'stbadge transit'; }
+    else if (trip.status === 'Delivered') { b.textContent = 'Trip complete (Delivered)'; b.className = 'stbadge done'; }
+    else { b.textContent = 'Loading ho rahi hai'; b.className = 'stbadge'; }
+
+    const cells = [
+      ['माल', 'Material', trip.material],
+      ['पार्टी', 'Party', trip.partyName],
+      ['ड्राइवर', 'Driver', trip.driverName],
+      ['ट्रिप ID', 'Trip ID', trip.tripId]
+    ].filter(function (c) { return c[2]; });
+    $('cells').innerHTML = cells.map(function (c) {
+      return '<div class="cell"><div class="lbl">' + U.esc(c[0]) + '<small>' + U.esc(c[1]) + '</small></div>' +
+        '<div class="v">' + U.esc(c[2]) + '</div></div>';
+    }).join('');
+
+    $('noteBox').hidden = !trip.remarks;
+    $('noteText').textContent = trip.remarks || '';
+  }
+  function clearTripDom() {
+    ['plate', 'stFrom', 'stTo', 'stBadge', 'noteText'].forEach(function (i) { $(i).textContent = ''; });
+    $('cells').innerHTML = '';
+    $('noteBox').hidden = true;
+    trip = null;
+  }
+  function unlock(t) {
+    trip = t;
+    renderTrip();
+    if (!unlocked) {
+      unlocked = true;
+      clearTimeout(firstFixTimer);
+      screen('sTrip');
+      if (installEvt) $('btnInstall').hidden = false;
+    }
+  }
+  // Location band ho gayi: details dobara chhupa do
+  function lockAgain(denied) {
+    stopLocal();
+    unlocked = false;
+    clearTripDom();
+    screen('sGate');
+    showDenied(!!denied);
+    if (!denied) setGate('Trip details dekhne ke liye Location allow karna zaruri hai.', 'warn');
+  }
+
+  /* ---------- load ---------- */
+  async function load() {
+    screen('sLoading');
+    if (!/^[A-Za-z0-9]{32,64}$/.test(token)) {
+      info('🚫', 'bad', 'Link sahi nahi hai', 'Yeh link galat hai. ATC Transport se naya link maangein.'); return;
+    }
+    let r;
+    try { r = await U.api('getTrip', { token: token, deviceId: device }); }
+    catch (e) { info('📡', 'warn', 'Internet / server problem', 'Net check karke dobara try karein.', true); return; }
+
+    if (!r || !r.ok) {
+      if (r && r.error === 'INVALID_LINK') {
+        try { localStorage.removeItem(LAST_KEY); } catch (e) { /* ignore */ }
+        info('🚫', 'bad', 'Link sahi nahi hai', 'Yeh link galat ya band ho chuka hai. ATC Transport se naya link maangein.');
+      } else info('⚠️', 'warn', 'Server error', 'Thodi der baad dobara try karein.', true);
+      return;
+    }
+    try { localStorage.setItem(LAST_KEY, token); } catch (e) { /* ignore */ }
+
+    if (r.trip.status === 'Delivered') { info('✅', 'ok', 'Trip complete', 'Yeh trip poori ho chuki hai. Dhanyavaad!'); return; }
+    if (r.linkInUse) { showInUse(); return; }
+    if (r.trip.trackingState === 'Stopped') { showPausedInfo(); return; }
+    proceed();
+  }
+
+  function showInUse() {
+    info('🔒', 'bad', 'Yeh link kisi aur phone par chal raha hai',
+      'Yeh link sirf ek phone par chalta hai. Apna phone badla ho to ATC Transport se sampark karein.');
+  }
+  function showPausedInfo() {
+    info('⏸️', 'warn', 'Tracking abhi band hai', 'ATC Transport ne abhi tracking roki hai. Chalu hote hi yeh page apne aap khul jayega. Page khula rakhein.');
+    startResumePoll();
+  }
+
+  /* ---------- location gate ---------- */
+  async function permState() {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        permObj = await navigator.permissions.query({ name: 'geolocation' });
+        permObj.onchange = onPermChange;
+        return permObj.state;
+      }
+    } catch (e) { /* Safari etc. */ }
+    return 'unknown';
+  }
+  function onPermChange() {
+    if (!permObj) return;
+    if (permObj.state === 'denied') lockAgain(true);
+    else if (permObj.state === 'granted' && !active && !paused) { showDenied(false); startTracking(); }
+  }
+
+  async function proceed() {
+    screen('sGate');
+    showDenied(false);
+    setGate('', '');
+    $('btnAllow').disabled = false;
+    if (!window.isSecureContext) {
+      setGate('Yeh page HTTPS par nahi khula, isliye location kaam nahi karegi.', 'bad');
+      $('btnAllow').disabled = true; return;
+    }
+    if (!navigator.geolocation) {
+      setGate('Is browser mein location support nahi hai. Chrome ya Safari use karein.', 'bad');
+      $('btnAllow').disabled = true; return;
+    }
+    const st = await permState();
+    if (st === 'denied') { showDenied(true); return; }
+    if (st === 'granted') startTracking();
+  }
+
+  /* ---------- tracking ---------- */
+  function startTracking() {
+    if (active) return;
+    active = true; paused = false;
+    $('btnAllow').disabled = true;
+    if (!unlocked) {
+      setGate('Location mil rahi hai… thoda ruko', 'wait');
+      clearTimeout(firstFixTimer);
+      firstFixTimer = setTimeout(function () {
+        if (!unlocked) setGate('GPS signal nahi mil raha. Khuli jagah par jaayein aur phone ka Location (GPS) ON karein.', 'warn');
+      }, 25000);
+    } else {
+      setLive('warn', 'GPS signal dhoondh rahe hain…');
+    }
+    watchId = navigator.geolocation.watchPosition(onPos, onGeoError, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+    timer = setInterval(tick, INTERVAL);
+    requestWakeLock();
+    if (queue.length) flush();
+  }
+
+  function onGeoError(err) {
+    if (err.code === 1) { lockAgain(true); return; }
+    if (!unlocked) {
+      setGate(err.code === 2
+        ? 'GPS signal nahi mil raha. Phone ka Location (GPS) ON karein aur khuli jagah par jaayein.'
+        : 'GPS slow hai, thoda intezaar karein…', 'warn');
+      $('btnAllow').disabled = false;
+    } else {
+      setLive('warn', err.code === 2 ? 'GPS signal nahi mil raha' : 'GPS slow hai');
+    }
+  }
+
+  function onPos(pos) {
+    const c = pos.coords;
+    lastFix = { lat: c.latitude, lng: c.longitude, acc: Math.round(c.accuracy), speed: c.speed, ts: pos.timestamp || Date.now() };
+    if (!lastQueuedTs) tick();
+  }
+
+  function tick() {
+    if (!active) return;
+    if (lastFix && lastFix.ts > lastQueuedTs) enqueue(lastFix);
+    else if (!polling && navigator.geolocation) {
+      polling = true;
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        polling = false; onPos(pos);
+        if (lastFix.ts > lastQueuedTs) enqueue(lastFix);
+      }, function () { polling = false; }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+    }
+  }
+
+  function enqueue(fix) {
+    lastQueuedTs = fix.ts;
+    queue.push({ lat: fix.lat, lng: fix.lng, acc: fix.acc, speed: fix.speed, ts: fix.ts });
+    if (queue.length > 300) queue.splice(0, queue.length - 300);
+    saveQueue();
+    flush();
+  }
+
+  async function flush() {
+    if (sending || !queue.length) return;
+    sending = true;
+    const batch = queue.slice(0, 50);
+    try {
+      const r = await U.api('postLocations', { token: token, deviceId: device, points: batch });
+      if (r && r.ok) {
+        queue.splice(0, batch.length); saveQueue();
+        if (r.trip) unlock(r.trip);            // location accept hui -> details khulti hain
+        if (active && unlocked) setLive('', 'Location ON ✓ — ATC Transport ko aapki live location mil rahi hai');
+      } else if (r && r.error === 'LINK_IN_USE') {
+        queue = []; saveQueue(); unlocked = false; clearTripDom(); showInUse(); sending = false; return;
+      } else if (r && r.error === 'TRIP_CLOSED') {
+        queue = []; saveQueue(); unlocked = false; clearTripDom();
+        info('✅', 'ok', 'Trip complete', 'Yeh trip poori ho chuki hai. Dhanyavaad!'); sending = false; return;
+      } else if (r && r.error === 'TRACKING_STOPPED') {
+        queue = []; saveQueue(); stopLocal();
+        if (unlocked) { setLive('idle', 'Tracking abhi band hai (ATC Transport ne roki)'); startResumePoll(); }
+        else showPausedInfo();
+        sending = false; return;
+      } else if (r && (r.error === 'INVALID_LINK' || r.error === 'BAD_DEVICE')) {
+        queue = []; saveQueue(); unlocked = false; clearTripDom();
+        info('🚫', 'bad', 'Link sahi nahi hai', 'ATC Transport se naya link maangein.'); sending = false; return;
+      } else if (r && r.error === 'NO_VALID_POINTS') {
+        queue.splice(0, batch.length); saveQueue();
+      } else if (!unlocked) setGate('Server busy hai, dobara koshish ho rahi hai…', 'warn');
+      else if (active) setLive('warn', 'Location ON · server busy');
+    } catch (e) {
+      if (!unlocked) setGate('Internet nahi hai. Net chalu karein, phir apne aap aage badhega.', 'warn');
+      else if (active) setLive('warn', 'Internet nahi · location phone mein save ho rahi hai');
+    }
+    sending = false;
+    if (queue.length && active && !document.hidden) setTimeout(flush, 1500);
+  }
+
+  function stopLocal() {
+    active = false;
+    if (watchId !== null) { try { navigator.geolocation.clearWatch(watchId); } catch (e) { /* ignore */ } watchId = null; }
+    clearInterval(timer); timer = null;
+    clearTimeout(firstFixTimer);
+    releaseWakeLock();
+    lastQueuedTs = 0;
+    $('btnAllow').disabled = false;
+  }
+
+  /* ---------- admin ne roka: chalu hote hi khud shuru ---------- */
+  function startResumePoll() {
+    paused = true;
+    clearInterval(resumeTimer);
+    resumeTimer = setInterval(checkResume, 30000);
+  }
+  async function checkResume() {
+    try {
+      const r = await U.api('getTrip', { token: token, deviceId: device });
+      if (!r || !r.ok) return;
+      if (r.trip.status === 'Delivered') { clearInterval(resumeTimer); unlocked = false; clearTripDom(); info('✅', 'ok', 'Trip complete', 'Yeh trip poori ho chuki hai. Dhanyavaad!'); return; }
+      if (r.linkInUse) { clearInterval(resumeTimer); unlocked = false; clearTripDom(); showInUse(); return; }
+      if (r.trip.trackingState !== 'Stopped') {
+        clearInterval(resumeTimer); paused = false;
+        if (unlocked) startTracking(); else proceed();
+      }
+    } catch (e) { /* agli baar */ }
+  }
+
+  /* ---------- wake lock / visibility ---------- */
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator && active && !wakeLock) {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', function () { wakeLock = null; });
+      }
+    } catch (e) { wakeLock = null; }
+  }
+  function releaseWakeLock() { try { if (wakeLock) wakeLock.release(); } catch (e) { /* ignore */ } wakeLock = null; }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (!active) return;
+    requestWakeLock();
+    const away = hiddenAt ? Date.now() - hiddenAt : 0;
+    hiddenAt = 0;
+    if (away > 60000 && unlocked) setLive('warn', 'Location ON · beech mein gap ho sakta hai');
+    tick(); flush();
+  });
+  window.addEventListener('online', function () { if (queue.length) flush(); });
+
+  $('btnAllow').addEventListener('click', function () { setGate('Location mil rahi hai… thoda ruko', 'wait'); startTracking(); });
+  $('btnRetry').addEventListener('click', function () { showDenied(false); proceed(); });
+  $('btnInfoRetry').addEventListener('click', load);
+
+  load();
+})();
+</script>
+</body>
+</html>

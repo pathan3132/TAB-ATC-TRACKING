@@ -52,6 +52,7 @@ class LocationService : Service() {
     private var token = ""
     private var updatesOn = false
     private var sentCount = 0
+    private val prefs by lazy { getSharedPreferences("tab", MODE_PRIVATE) }
 
     private val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -71,12 +72,11 @@ class LocationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val prefs = getSharedPreferences("tab", MODE_PRIVATE)
         token = intent?.getStringExtra(EXTRA_TOKEN) ?: prefs.getString("token", "") ?: ""
         if (token.isEmpty()) { stopSelf(); return START_NOT_STICKY }
         prefs.edit().putString("token", token).apply()
 
-        val n = buildNotification("Tracking chalu hai", "Aapki location TAB Solutions ko bheji ja rahi hai")
+        val n = buildNotification("Tracking chalu hai", "Aapki location ATC Transport ko bheji ja rahi hai")
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
         } else {
@@ -99,15 +99,16 @@ class LocationService : Service() {
     /* ---------------- state ---------------- */
 
     private fun checkState() {
-        val r = Api.getTrip(token)
+        val r = Api.getTrip(token, Device.id(this))
         if (r == null) {            // net nahi: tracking chalu rakho, baad mein sync hoga
             handler.post { startUpdates() }
             return
         }
-        if (!r.optBoolean("ok")) { finishTrip(); return }
+        if (!r.optBoolean("ok")) { finishTrip("INVALID"); return }
         val trip = r.optJSONObject("trip")
         when {
-            trip?.optString("status") == "Delivered" -> finishTrip()
+            r.optBoolean("linkInUse") -> finishTrip("LINK_IN_USE")
+            trip?.optString("status") == "Delivered" -> finishTrip("CLOSED")
             trip?.optString("trackingState") == "Stopped" -> pause()
             else -> handler.post { startUpdates() }
         }
@@ -123,7 +124,7 @@ class LocationService : Service() {
         try {
             client.requestLocationUpdates(req, callback, Looper.getMainLooper())
             updatesOn = true
-            updateNotification("Tracking chalu hai", "Aapki location TAB Solutions ko bheji ja rahi hai")
+            updateNotification("Tracking chalu hai", "Aapki location ATC Transport ko bheji ja rahi hai")
         } catch (e: SecurityException) {
             stopSelf()
         }
@@ -141,15 +142,16 @@ class LocationService : Service() {
         queue.clear()
         handler.post {
             stopUpdates()
-            updateNotification("Tracking abhi band hai", "TAB Solutions ne tracking roki hai")
+            updateNotification("Tracking abhi band hai", "ATC Transport ne tracking roki hai")
             handler.removeCallbacksAndMessages(null)
             handler.postDelayed({ io.execute { checkState() } }, RESUME_POLL_MS)
         }
     }
 
-    private fun finishTrip() {
+    // reason: UI ko dikhane ke liye (LINK_IN_USE / CLOSED / INVALID). Trip details hata di jati hain.
+    private fun finishTrip(reason: String) {
         queue.clear()
-        getSharedPreferences("tab", MODE_PRIVATE).edit().remove("token").apply()
+        prefs.edit().remove("token").remove("trip").putString("notice", reason).apply()
         handler.post {
             stopUpdates()
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -164,7 +166,8 @@ class LocationService : Service() {
         val batch = queue.take(50)
         val arr = JSONArray().also { a -> batch.forEach { a.put(it) } }
         val res = Api.post(
-            JSONObject().put("action", "postLocations").put("token", token).put("points", arr)
+            JSONObject().put("action", "postLocations").put("token", token)
+                .put("deviceId", Device.id(this)).put("points", arr)
         )
         if (res == null) {
             updateNotification("Tracking chalu, internet nahi", "Location phone mein save hai, net aate hi bhej di jayegi")
@@ -172,13 +175,17 @@ class LocationService : Service() {
         }
         if (res.optBoolean("ok")) {
             repeat(batch.size) { queue.removeFirst() }
+            // Server ne location accept ki: ab trip details driver ko dikha sakte hain
+            res.optJSONObject("trip")?.let { prefs.edit().putString("trip", it.toString()).apply() }
             sentCount += batch.size
             updateNotification("Tracking chalu hai", "Bheje gaye points: $sentCount")
             if (queue.isNotEmpty()) flush()
             return
         }
         when (res.optString("error")) {
-            "TRIP_CLOSED", "INVALID_LINK" -> finishTrip()
+            "TRIP_CLOSED" -> finishTrip("CLOSED")
+            "LINK_IN_USE" -> finishTrip("LINK_IN_USE")
+            "INVALID_LINK", "BAD_DEVICE" -> finishTrip("INVALID")
             "TRACKING_STOPPED" -> pause()
             "NO_VALID_POINTS" -> repeat(batch.size) { queue.removeFirst() }
             else -> { /* server busy: agli baar dobara */ }
