@@ -398,7 +398,7 @@ p{margin:0 0 10px}
     firstFixTimer = setTimeout(function () {
       if (!unlocked) {
         $('btnAllow').hidden = false;
-        setGate('कृपया स्क्रीन पर Allow दबाएं या फोन का GPS चालू करें', 'warn');
+        setGate('कृपया स्क्रीन पर Allow दबाएं ', 'warn');
       }
     }, 15000);
 
@@ -412,7 +412,7 @@ p{margin:0 0 10px}
     if (err.code === 1) { lockAgain(true); return; }
     if (!unlocked) {
       $('btnAllow').hidden = false;
-      setGate('GPS सिग्नल कमजोर है, थोड़ा इंतज़ार करें…', 'warn');
+      setGate(' सिग्नल कमजोर है, थोड़ा इंतज़ार करें…', 'warn');
     }
   }
 
